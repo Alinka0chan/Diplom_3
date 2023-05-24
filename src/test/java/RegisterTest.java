@@ -1,8 +1,11 @@
 import PageObject.LoginPage;
 import PageObject.RegisterPage;
+import api.client.UserClient;
 import api.model.User;
+import api.util.UserCredentials;
 import api.util.UserGenerator;
 import io.qameta.allure.junit4.DisplayName;
+import io.restassured.response.ValidatableResponse;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -11,9 +14,13 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 
+import static org.hamcrest.CoreMatchers.equalTo;
+
 public class RegisterTest {
     private WebDriver driver;
     User user;
+    private UserClient userClient;
+    private String userAccessToken;
     RegisterPage registerPage;
     LoginPage loginPage;
 
@@ -25,6 +32,7 @@ public class RegisterTest {
         driver.get("https://stellarburgers.nomoreparties.site/register");
         registerPage = new RegisterPage(driver);
         loginPage = new LoginPage(driver);
+        userClient = new UserClient();
     }
 
 
@@ -35,6 +43,12 @@ public class RegisterTest {
         registerPage.registration(user);
         loginPage.waitForLoadHeader();
         Assert.assertTrue(loginPage.checkHeaderLogin());
+        ValidatableResponse loginResponse = userClient.login(UserCredentials.from(user));
+        loginResponse
+                .statusCode(200)
+                .assertThat()
+                .body("success", equalTo(true));
+        userAccessToken = loginResponse.extract().path("accessToken");
     }
 
     @Test
@@ -48,5 +62,8 @@ public class RegisterTest {
     @After
     public void cleanUp() {
         driver.quit();
+        if (userAccessToken != null) {
+            userClient.delete(userAccessToken);
+        }
     }
 }
